@@ -1,7 +1,7 @@
 #include <ESP8266WiFi.h>
 #include <PubSubClient.h>
 
-#define wifi_ssid "Lsong’s iPhone XR"
+#define wifi_ssid "mobile@lsong.org"
 #define wifi_pass "song940@163.com"
 
 #define mqtt_server "lsong.me"

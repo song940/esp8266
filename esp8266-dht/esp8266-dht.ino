@@ -1,42 +1,80 @@
 #include <ESP8266WiFi.h>
-#include <DHT.h>;
+#include <PubSubClient.h>
+#include <DHT.h>
 
-#define DHTPIN 2          // what pin we're connected to
-#define DHTTYPE DHT22     // DHT 22  (AM2302)
-DHT dht(DHTPIN, DHTTYPE); //// Initialize DHT sensor for normal 16mhz Arduino
+#define DHTPIN 2      // what pin we're connected to
+#define DHTTYPE DHT22 // DHT 22  (AM2302)
+
+DHT dht(DHTPIN, DHTTYPE); // Initialize DHT sensor for normal 16mhz Arduino
+WiFiClient wifi;
 WiFiServer server(80);
+PubSubClient mqtt(wifi);
 
-const char *ssid = "esp8266";             // Your ssid
+const char *ssid = "mobile@lsong.org";    // Your ssid
 const char *password = "song940@163.com"; // Your Password
+
+const char *mqtt_server = "lsong.me";
+const char *mqtt_user = "your_username";
+const char *mqtt_password = "your_password";
 
 float humi;
 float temp;
 
 void setup()
 {
-  WiFi.mode(WIFI_AP);
-  WiFi.softAP(ssid, password);
+  Serial.begin(115200);
+  WiFi.begin(ssid, password);
+  // WiFi.mode(WIFI_AP);
+  // WiFi.softAP(ssid, password);
+  // Serial.println(WiFi.softAPIP());
+  while (WiFi.status() != WL_CONNECTED)
+  {
+    delay(500);
+    Serial.print(".");
+  }
+
+  Serial.println("");
+  Serial.println("WiFi connected");
+  Serial.println("IP address: ");
+  Serial.println(WiFi.localIP());
+
+  mqtt.setServer(mqtt_server, 1883);
+  mqtt.setCallback(MQTTcallback);
+
+  while (!mqtt.connected())
+  {
+    Serial.println("Connecting to MQTT...");
+    if (mqtt.connect("ESP8266"))
+    {
+      Serial.println("connected");
+    }
+    else
+    {
+      Serial.print("failed with state ");
+      Serial.println(mqtt.state()); //If you get state 5: mismatch in configuration
+      delay(2000);
+    }
+  }
 
   dht.begin();
   server.begin();
-
-  Serial.begin(115200);
-  Serial.println(WiFi.softAPIP());
   Serial.println("Server started");
+  mqtt.publish("esp/test", "Hello from ESP8266");
 }
 
-double Fahrenheit(double celsius)
-{
-  return ((double)(9 / 5) * celsius) + 32;
-}
-
-double Kelvin(double celsius)
+double kelvin(double celsius)
 {
   return celsius + 273.15;
 }
 
+double fahrenheit(double celsius)
+{
+  return ((double)(9 / 5) * celsius) + 32;
+}
+
 void loop()
 {
+  mqtt.loop();
   //Read data and store it to variables hum and temp
   humi = dht.readHumidity();
   temp = dht.readTemperature();
@@ -61,15 +99,44 @@ void loop()
   client.println("<H2>ESP8266 & DHT11 Sensor</H2>");
   client.println("<H3>Humidity / Temperature</H3>");
   client.println("<pre>");
-  client.print("Humidity (%)     : ");
+  client.print("Humidity    (%)   : ");
   client.println((float)humi, 2);
   client.print("Temperature (°C)  : ");
   client.println((float)temp, 2);
   client.print("Temperature (°F)  : ");
-  client.println(Fahrenheit(temp), 2);
+  client.println(fahrenheit(temp), 2);
   client.print("Temperature (°K)  : ");
-  client.println(Kelvin(temp), 2);
+  client.println(kelvin(temp), 2);
   client.println("</pre>");
-  client.print("</body>\n</html>");
+  client.print("</body></html>");
   delay(1000); //Delay 2 sec.
+  mqtt.publish("esp/dht/humi", String(humi).c_str());
+  mqtt.publish("esp/dht/temp", String(temp).c_str());
+}
+
+void MQTTcallback(char *topic, byte *payload, unsigned int length)
+{
+
+  Serial.print("Message arrived in topic: ");
+  Serial.println(topic);
+
+  Serial.print("Message:");
+
+  String message;
+  for (int i = 0; i < length; i++)
+  {
+    message = message + (char)payload[i]; //Conver *byte to String
+  }
+  Serial.print(message);
+  if (message == "#on")
+  {
+    digitalWrite(LED_BUILTIN, LOW);
+  } //LED_BUILTIN on
+  if (message == "#off")
+  {
+    digitalWrite(LED_BUILTIN, HIGH);
+  } //LED_BUILTIN off
+
+  Serial.println();
+  Serial.println("-----------------------");
 }
