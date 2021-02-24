@@ -37,7 +37,7 @@ void setup()
   while (!mqtt.connected())
   {
     Serial.println("Connecting to MQTT...");
-    if (mqtt.connect("ESP8266"))
+    if (mqtt.connect("esp8266-basic"))
     {
       Serial.println("connected");
     }

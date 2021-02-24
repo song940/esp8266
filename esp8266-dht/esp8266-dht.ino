@@ -22,6 +22,7 @@ float temp;
 
 void setup()
 {
+  pinMode(LED_BUILTIN, OUTPUT);
   Serial.begin(115200);
   WiFi.begin(ssid, password);
   // WiFi.mode(WIFI_AP);
@@ -44,7 +45,7 @@ void setup()
   while (!mqtt.connected())
   {
     Serial.println("Connecting to MQTT...");
-    if (mqtt.connect("ESP8266"))
+    if (mqtt.connect("esp8266-dht"))
     {
       Serial.println("connected");
     }
@@ -60,6 +61,7 @@ void setup()
   server.begin();
   Serial.println("Server started");
   mqtt.publish("esp/test", "Hello from ESP8266");
+  mqtt.subscribe("esp/test");
 }
 
 double kelvin(double celsius)
@@ -109,17 +111,15 @@ void loop()
   client.println(kelvin(temp), 2);
   client.println("</pre>");
   client.print("</body></html>");
-  delay(1000); //Delay 2 sec.
+  delay(2000); //Delay 2 sec.
   mqtt.publish("esp/dht/humi", String(humi).c_str());
   mqtt.publish("esp/dht/temp", String(temp).c_str());
 }
 
 void MQTTcallback(char *topic, byte *payload, unsigned int length)
 {
-
   Serial.print("Message arrived in topic: ");
   Serial.println(topic);
-
   Serial.print("Message:");
 
   String message;
@@ -127,7 +127,9 @@ void MQTTcallback(char *topic, byte *payload, unsigned int length)
   {
     message = message + (char)payload[i]; //Conver *byte to String
   }
+
   Serial.print(message);
+
   if (message == "#on")
   {
     digitalWrite(LED_BUILTIN, LOW);
@@ -136,7 +138,5 @@ void MQTTcallback(char *topic, byte *payload, unsigned int length)
   {
     digitalWrite(LED_BUILTIN, HIGH);
   } //LED_BUILTIN off
-
   Serial.println();
-  Serial.println("-----------------------");
 }
